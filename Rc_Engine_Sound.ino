@@ -20,7 +20,7 @@ const float codeVersion = 1.2; // Software revision
 
 // Stuff not to play with! ----------------------------------------------------------------------------
 #define SPEAKER 3                               // This is kept as 3, original code had 11 as option, but this conflicts with SPI
-volatile uint16_t currentSmpleRate = BASE_RATE; // Current playback rate, this is adjusted depending on engine RPM
+volatile uint16_t currentSampleRate = BASE_RATE; // Current playback rate, this is adjusted depending on engine RPM
 boolean audioRunning = false;                   // Audio state, used so we can toggle the sound system
 boolean engineOn = true;                        // Signal for engine on / off
 uint16_t curVolume = 0;                         // Current digi pot volume, used for fade in/out
@@ -30,7 +30,7 @@ int16_t  currentThrottle = 0;                   // 0 - 1000, a top value of 1023
 uint8_t  throttleByte = 0;                      // Raw throttle position in SPI mode, gets mapped to currentThrottle
 uint8_t  spiReturnByte = 0;                     // The current RPM mapped to a byte for SPI return
 volatile int16_t pulseWidth = 0;                // Current pulse width when in PWM mode
-volatile boolean pulseAvailable;                  // RC signal pulses are coming in
+volatile boolean pulseAvailable;                // RC signal pulses are coming in
 #define FREQ 16000000L                          // Always 16MHz, even if running on a 8MHz MCU!
 
 int16_t pulseMaxNeutral; // PWM throttle configuration storage variables
@@ -39,6 +39,10 @@ int16_t pulseMax;
 int16_t pulseMin;
 int16_t pulseMaxLimit;
 int16_t pulseMinLimit;
+
+// sound switching
+char *sound_data;
+int  *sound_length;
 
 //
 // =======================================================================================================
@@ -88,7 +92,12 @@ void setup() {
   pulseMinLimit = pulseZero - pulseLimit;
 
   // setup complete, so start making sounds
-  setupPcm();
+#ifdef STARTER
+  currentSampleRate = FREQ / BASE_RATE;
+  setupPcm(start_data, start_length);
+  delay(200 * 5);
+#endif
+  setupPcm(idle_data, idle_length);  
 }
 
 //
@@ -119,7 +128,7 @@ void doPotThrottle() {
     currentThrottle = analogRead(POT_PIN);
   }
   else {
-    currentSmpleRate = FREQ / (BASE_RATE + long(analogRead(POT_PIN) * TOP_SPEED_MULTIPLIER));
+    currentSampleRate = FREQ / (BASE_RATE + long(analogRead(POT_PIN) * TOP_SPEED_MULTIPLIER));
   }
 }
 
@@ -137,7 +146,7 @@ void doPwmThrottle() {
 
   if (!managedThrottle) {
     // The current sample rate will be written later, if managed throttle is active
-    currentSmpleRate = FREQ / (BASE_RATE + long(currentThrottle * TOP_SPEED_MULTIPLIER));
+    currentSampleRate = FREQ / (BASE_RATE + long(currentThrottle * TOP_SPEED_MULTIPLIER));
   }
 }
 
@@ -145,15 +154,15 @@ void doPwmThrottle() {
 void doSpiThrottle() {
   if (managedThrottle) {
     if (throttleByte > 0) {
-      if (!audioRunning) setupPcm();
+      if (!audioRunning) setupPcm(idle_data, idle_length);
       currentThrottle = throttleByte << 2;
     }
     else if (audioRunning) stopPlayback();
   }
   else {
     if (throttleByte > 0) {
-      if (!audioRunning) setupPcm();
-      currentSmpleRate = FREQ / (BASE_RATE + long((throttleByte << 2) * TOP_SPEED_MULTIPLIER));
+      if (!audioRunning) setupPcm(idle_data, idle_length);
+      currentSampleRate = FREQ / (BASE_RATE + long((throttleByte << 2) * TOP_SPEED_MULTIPLIER));
     }
     else if (audioRunning) stopPlayback();
   }
@@ -196,7 +205,7 @@ void manageSpeed() {
     else spiReturnByte = 255;
     if (currentRpm >> 2 < 0) spiReturnByte = 0;
 
-    currentSmpleRate = FREQ / (BASE_RATE + long(currentRpm * TOP_SPEED_MULTIPLIER) );
+    currentSampleRate = FREQ / (BASE_RATE + long(currentRpm * TOP_SPEED_MULTIPLIER) );
   }
 
   // Engine volume (for MCP4131 digipot only) -------------------------------------------------------
@@ -239,8 +248,11 @@ void writePot(uint8_t data) {
 // =======================================================================================================
 //
 
-void setupPcm() {
-  
+void setupPcm(char data[], int length) {
+  // sound pointers
+  sound_data = &data[0];
+  sound_length = &length;
+
   pinMode(SPEAKER, OUTPUT);
   audioRunning = true;
 
@@ -254,7 +266,7 @@ void setupPcm() {
   TCCR2A &= ~(_BV(COM2A1) | _BV(COM2A0));                   // On the Arduino this is pin 3.
   TCCR2B = (TCCR2B & ~(_BV(CS12) | _BV(CS11))) | _BV(CS10); // No prescaler (p.158)
 
-  OCR2B = pgm_read_byte(&idle_data[0]);                     // Set initial pulse width to the first sample.
+  OCR2B = pgm_read_byte(&sound_data[0]);                    // Set initial pulse width to the first sample.
 
   // Set up Timer 1 to send a sample every interrupt.
   cli();
@@ -270,7 +282,8 @@ void setupPcm() {
 
   TIMSK1 |= _BV(OCIE1A);                                   // Enable interrupt when TCNT1 == OCR1A (p.136)
 
-  lastSample = pgm_read_byte(&idle_data[idle_length - 1]);
+  int lastIndex = *sound_length - 1;
+  lastSample = pgm_read_byte(*(sound_data + lastIndex));
   curEngineSample = 0;
   sei();
 
@@ -357,14 +370,14 @@ ISR (SPI_STC_vect) {
 
 // This is the main playback interrupt, keep this nice and tight!! -----------------------------------
 ISR(TIMER1_COMPA_vect) {
-  OCR1A = currentSmpleRate;
+  OCR1A = currentSampleRate;
 
-  if (curEngineSample >= idle_length) { // Loop the sample
+  if (curEngineSample >= sound_length) { // Loop the sample
     curEngineSample = 0;
   }
 
   if (engineOn) {
-    OCR2B = pgm_read_byte(&idle_data[curEngineSample]); // Volume
+    OCR2B = pgm_read_byte(&sound_data[curEngineSample]); // Volume
     curEngineSample++;
   }
   else OCR2B = 255; // Stop engine (volume = 0)
