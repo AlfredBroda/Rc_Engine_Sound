@@ -1,6 +1,7 @@
 
 // Choose the motor sound (uncomment the one you want)
 #include "diesel.h" // Diesel Truck <------- The preferred one for old, big Diesel trucks
+
 //#include "v8.h" // Generic V8
 //#include "chevyNovaV8.h" // Chevy Nova Coupe 1975 <------- The best sounding!
 //#include "Mustang68.h" // Ford Mustang 1968
@@ -8,7 +9,7 @@
 //#include "LaFerrari.h" // Ferrari "LaFerrari"
 
 // PWM Throttle range calibration -----------------------------------------------------------------------------------
-int16_t pulseZero = 1520; // Usually 1500 (range 1000 - 2000us) WPL B36 = 1520
+int16_t pulseZero = 1500; // Usually 1500 (range 1000 - 2000us) WPL B36 = 1520
 int16_t pulseNeutral = 10; // pulseZero +/- this value
 int16_t pulseSpan = 300; // pulseZero +/- this value (500) WPL B36 = 300
 int16_t pulseLimit = 700; // pulseZero +/- this value (700)
@@ -18,12 +19,6 @@ boolean managedThrottle = true;     // Managed mode looks after the digipot if f
 boolean potThrottle = false;        // A pot connected to A1, 0-1023 sets speed
 boolean pwmThrottle = true;         // Takes a standard servo signal on pin 2 (UNO)
 boolean spiThrottle = false;        // SPI mode, is an SPI slave, expects 1-255 for throttle position, with 0 being engine off
-
-// Pins -------------------------------------------------------------------------------------------------------------
-#define POT_PIN A1     // Pot wiper when using pot mode
-#define POT_CS  4      // MCP4131 CS // If using a digi pot to control volume these are the pins
-#define POT_SCK 5      // MCP4131 Clock 
-#define POT_SDO 6      // MCP4131 Data
 
 // Volume, max. speed -----------------------------------------------------------------------------------------------
 #define DEFAULT_VOLUME 127      // Volume when in non managed mode
