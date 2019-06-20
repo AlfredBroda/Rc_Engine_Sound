@@ -18,6 +18,11 @@ GitHub repo: https://github.com/TheDIYGuy999/Rc_Engine_Sound
 ## New in V 1.2:
 - PWM throttle range now adjustable in settings.h
 
+## New in V 1.3
+- Engine startup sound from Ural 357D
+- TTL output for smoke generators etc.
+- Removed all SPI functions to fit new sounds
+
 ## Ho to create new sound arrays:
 
 ### Audacity:

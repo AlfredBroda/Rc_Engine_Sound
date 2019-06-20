@@ -19,7 +19,6 @@
 const float codeVersion = 1.3; // Software revision
 
 // Stuff not to play with! ----------------------------------------------------------------------------
-#define SPEAKER 3                               // This is kept as 3, original code had 11 as option, but this conflicts with SPI
 volatile uint16_t currentSampleRate = BASE_RATE; // Current playback rate, this is adjusted depending on engine RPM
 boolean audioRunning = false;                   // Audio state, used so we can toggle the sound system
 boolean engineOn = true;                        // Signal for engine on / off
@@ -49,7 +48,6 @@ int  *sound_length;
 //
 
 void setup() {
-
   // Analog input, we set these pins so a pot with 0.1in pin spacing can
   // plug directly into the Arduino header
   pinMode(A0, OUTPUT);
@@ -70,6 +68,9 @@ void setup() {
   pulseMin = pulseZero - pulseSpan;
   pulseMaxLimit = pulseZero + pulseLimit;
   pulseMinLimit = pulseZero - pulseLimit;
+
+  pinMode(TTL_PIN, OUTPUT);
+  analogWrite(TTL_PIN, 0);
 
   // setup complete, so start making sounds
 #ifdef STARTER
@@ -92,6 +93,7 @@ void loop() {
     noPulse();
   }
   if (managedThrottle) manageSpeed();
+  doTTL();
 }
 
 //
@@ -116,6 +118,12 @@ void doPwmThrottle() {
     // The current sample rate will be written later, if managed throttle is active
     currentSampleRate = FREQ / (BASE_RATE + long(currentThrottle * TOP_SPEED_MULTIPLIER));
   }
+}
+
+// TTL signal for accessories (smoke generator rate) -------------------------------------------------
+void doTTL() {
+  float level = (currentThrottle * 255) / 1000;
+  analogWrite(TTL_PIN, round(level));
 }
 
 //
