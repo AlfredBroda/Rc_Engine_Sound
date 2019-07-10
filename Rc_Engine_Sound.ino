@@ -72,11 +72,14 @@ void setup() {
   pinMode(TTL_PIN, OUTPUT);
   analogWrite(TTL_PIN, 0);
 
+  pinMode(REVERSE_PIN, OUTPUT);
+  digitalWrite(REVERSE_PIN, 0);
+
   // setup complete, so start making sounds
 #ifdef STARTER
   currentSampleRate = FREQ / BASE_RATE;
   setupPcm(start_data, start_length);
-  delay(200 * 5);
+  delay(200 * 3);
 #endif
   setupPcm(idle_data, idle_length);  
 }
@@ -94,6 +97,7 @@ void loop() {
   }
   if (managedThrottle) manageSpeed();
   doTTL();
+  checkReverse();
 }
 
 //
@@ -124,6 +128,15 @@ void doPwmThrottle() {
 void doTTL() {
   float level = (currentThrottle * 255) / 1000;
   analogWrite(TTL_PIN, round(level));
+}
+
+// Reversing light -----------------------------------------------------------------------------------
+void checkReverse() {
+  if (pulseAvailable && (pulseWidth < pulseZero)) {
+    digitalWrite(REVERSE_PIN, 1);
+  } else {
+    digitalWrite(REVERSE_PIN, 0);
+  }
 }
 
 //

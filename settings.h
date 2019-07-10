@@ -28,4 +28,4 @@ boolean pwmThrottle = true;         // Takes a standard servo signal on pin 2 (U
 // Pin definitions
 #define SPEAKER 3               // This is kept as 3, original code had 11 as option, but this conflicts with SPI
 #define TTL_PIN 5               // any PWM pin
-
+#define REVERSE_PIN 4           // any digital pin
